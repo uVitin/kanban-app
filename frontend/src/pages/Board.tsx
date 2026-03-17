@@ -2,27 +2,20 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { DragEndEvent, DragOverEvent, DragStartEvent } from '@dnd-kit/core';
 import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  closestCorners,
+  DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCorners,
 } from '@dnd-kit/core';
 import {
-  SortableContext,
-  horizontalListSortingStrategy,
-  verticalListSortingStrategy,
-  useSortable,
-  arrayMove,
+  SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy,
+  useSortable, arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { boardsService } from '../services/boards';
 import { columnsService, cardsService } from '../services/kanban';
 import type { Column, Card, BoardDetail } from '../services/kanban';
 import { useAuth } from '../contexts/AuthContext';
+import CardModal from '../components/CardModal';
 
-function CardItem({ card, onDelete }: { card: Card; onDelete: (id: string) => void }) {
+function CardItem({ card, onDelete, onClick }: { card: Card; onDelete: (id: string) => void; onClick: (card: Card) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id, data: { type: 'card', card } });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
   const done = card.checkItems.filter((c) => c.checked).length;
@@ -31,6 +24,7 @@ function CardItem({ card, onDelete }: { card: Card; onDelete: (id: string) => vo
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}
+      onClick={() => onClick(card)}
       className="bg-white rounded-lg p-3 shadow-sm border border-gray-200 cursor-grab active:cursor-grabbing group">
       <p className="text-sm text-gray-800 mb-2">{card.title}</p>
       <div className="flex items-center gap-2 flex-wrap">
@@ -53,16 +47,22 @@ function CardItem({ card, onDelete }: { card: Card; onDelete: (id: string) => vo
   );
 }
 
-function ColumnItem({ column, onAddCard, onDeleteCard, onDeleteColumn }: {
+function ColumnItem({ column, onAddCard, onDeleteCard, onDeleteColumn, onClickCard, search }: {
   column: Column;
   onAddCard: (columnId: string, title: string) => void;
   onDeleteCard: (id: string) => void;
   onDeleteColumn: (id: string) => void;
+  onClickCard: (card: Card) => void;
+  search: string;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: column.id, data: { type: 'column' } });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
   const [newCard, setNewCard] = useState('');
   const [showInput, setShowInput] = useState(false);
+
+  const filtered = column.cards.filter((c) =>
+    c.title.toLowerCase().includes(search.toLowerCase())
+  );
 
   async function handleAdd() {
     if (!newCard.trim()) return;
@@ -73,16 +73,15 @@ function ColumnItem({ column, onAddCard, onDeleteCard, onDeleteColumn }: {
 
   return (
     <div ref={setNodeRef} style={style} className="flex-shrink-0 w-64 bg-gray-100 rounded-xl p-3 flex flex-col gap-2">
-      <div className="flex items-center justify-between mb-1">
-        <h3 className="font-medium text-sm text-gray-700">{column.title}</h3>
+      <div className="flex items-center justify-between mb-1" {...attributes} {...listeners}>
+        <h3 className="font-medium text-sm text-gray-700 cursor-grab">{column.title}</h3>
         <button onClick={() => onDeleteColumn(column.id)} className="text-gray-300 hover:text-red-400 text-xs transition">✕</button>
       </div>
-      <div {...attributes} {...listeners} className="cursor-grab" />
 
       <SortableContext items={column.cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
         <div className="flex flex-col gap-2 min-h-[4px]">
-          {column.cards.map((card) => (
-            <CardItem key={card.id} card={card} onDelete={onDeleteCard} />
+          {filtered.map((card) => (
+            <CardItem key={card.id} card={card} onDelete={onDeleteCard} onClick={onClickCard} />
           ))}
         </div>
       </SortableContext>
@@ -117,6 +116,8 @@ export default function Board() {
   const [newColTitle, setNewColTitle] = useState('');
   const [showColInput, setShowColInput] = useState(false);
   const [activeCard, setActiveCard] = useState<Card | null>(null);
+  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
+  const [search, setSearch] = useState('');
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -155,6 +156,13 @@ export default function Board() {
   async function handleDeleteCard(cardId: string) {
     await cardsService.remove(cardId);
     setColumns(columns.map((c) => ({ ...c, cards: c.cards.filter((card) => card.id !== cardId) })));
+  }
+
+  function handleUpdateCard(updated: Card) {
+    setColumns(columns.map((c) => ({
+      ...c,
+      cards: c.cards.map((card) => card.id === updated.id ? updated : card),
+    })));
   }
 
   function onDragStart(event: DragStartEvent) {
@@ -221,7 +229,14 @@ export default function Board() {
           <button onClick={() => navigate('/boards')} className="text-blue-200 hover:text-white text-sm transition">← Voltar</button>
           <h1 className="text-white font-semibold">{board?.title}</h1>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar cartões..."
+            className="bg-blue-600 border border-blue-400 text-white placeholder-blue-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-white w-48"
+          />
           <span className="text-blue-200 text-sm">{user?.name}</span>
           <button onClick={logout} className="text-sm text-blue-200 hover:text-white transition">Sair</button>
         </div>
@@ -232,9 +247,9 @@ export default function Board() {
           <SortableContext items={columns.map((c) => c.id)} strategy={horizontalListSortingStrategy}>
             <div className="flex gap-4 items-start">
               {columns.map((col) => (
-                <ColumnItem key={col.id} column={col} onAddCard={handleAddCard} onDeleteCard={handleDeleteCard} onDeleteColumn={handleDeleteColumn} />
+                <ColumnItem key={col.id} column={col} onAddCard={handleAddCard} onDeleteCard={handleDeleteCard}
+                  onDeleteColumn={handleDeleteColumn} onClickCard={setSelectedCard} search={search} />
               ))}
-
               <div className="flex-shrink-0 w-64">
                 {showColInput ? (
                   <div className="bg-gray-100 rounded-xl p-3 flex flex-col gap-2">
@@ -256,7 +271,6 @@ export default function Board() {
               </div>
             </div>
           </SortableContext>
-
           <DragOverlay>
             {activeCard && (
               <div className="bg-white rounded-lg p-3 shadow-lg border border-blue-300 w-64">
@@ -266,6 +280,14 @@ export default function Board() {
           </DragOverlay>
         </DndContext>
       </div>
+
+      {selectedCard && (
+        <CardModal
+          card={selectedCard}
+          onClose={() => setSelectedCard(null)}
+          onUpdate={handleUpdateCard}
+        />
+      )}
     </div>
   );
 }
