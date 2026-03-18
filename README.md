@@ -4,8 +4,7 @@ Aplicação de gerenciamento de tarefas no estilo Kanban, inspirada no Trello. D
 
 ## 🚀 Demo
 
-- **Frontend:** [kanban-jcnwq7ap5-albert-vitors-projects.vercel.app](https://kanban-jcnwq7ap5-albert-vitors-projects.vercel.app)
-- **Backend:** [kanban-app-production-f066.up.railway.app](https://kanban-app-production-f066.up.railway.app)
+- **Frontend:** [kanban-jcnwq7ap5-albert-vitors-projects.vercel.app](https://kanban-app-one-sigma.vercel.app/login)
 
 ---
 
