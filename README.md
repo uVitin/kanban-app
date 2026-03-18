@@ -99,7 +99,3 @@ O projeto foi desenvolvido em fases, cada uma em sua própria branch:
 | DELETE | `/cards/checklist/:id` | Remover item do checklist |
 
 ---
-
-## 📝 Licença
-
-MIT
